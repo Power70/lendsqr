@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import express from 'express';
 import { pinoHttp } from 'pino-http';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
+import { authRouter } from './modules/auth/auth.routes';
 import { healthRouter } from './modules/health/health.routes';
+import { usersRouter } from './modules/users/users.routes';
 import { logger } from './shared/logger/logger';
 
 // App wiring only — no .listen() here, so tests can drive it via supertest
@@ -30,6 +32,8 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '100kb' }));
 
   app.use(healthRouter);
+  app.use('/api/v1/users', usersRouter);
+  app.use('/api/v1/auth', authRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
