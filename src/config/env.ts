@@ -1,9 +1,8 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
-// Vars are added here the day the feature that consumes them lands
-// (JWT_* on Day 2, ADJUTOR_* on Day 3, RATE_LIMIT_* on Day 6) — a required
-// var with no consumer would force fake secrets into every environment.
+// A variable is only required here once code consumes it — required-but-unused
+// vars would force placeholder secrets into every environment.
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -18,6 +17,10 @@ const envSchema = z.object({
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('24h'),
+
+  ADJUTOR_BASE_URL: z.url().default('https://adjutor.lendsqr.com/v2'),
+  ADJUTOR_API_KEY: z.string().min(1),
+  ADJUTOR_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });

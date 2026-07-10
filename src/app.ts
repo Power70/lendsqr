@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import express from 'express';
 import { pinoHttp } from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
+import { openApiDocument } from './docs/openapi';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { authRouter } from './modules/auth/auth.routes';
 import { healthRouter } from './modules/health/health.routes';
@@ -32,6 +34,7 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '100kb' }));
 
   app.use(healthRouter);
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
   app.use('/api/v1/users', usersRouter);
   app.use('/api/v1/auth', authRouter);
 
