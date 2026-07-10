@@ -1,0 +1,21 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: demo-credit-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: demo_credit_root_local
+      MYSQL_DATABASE: demo_credit
+      MYSQL_USER: demo_credit
+      MYSQL_PASSWORD: demo_credit_local_dev
+    ports:
+      - '3306:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-pdemo_credit_root_local']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mysql-data:
