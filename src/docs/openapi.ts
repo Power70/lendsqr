@@ -14,6 +14,7 @@ export const openApiDocument = {
     { name: 'Users', description: 'Onboarding' },
     { name: 'Auth', description: 'Faux token authentication' },
     { name: 'Wallets', description: 'Wallet funding and withdrawals' },
+    { name: 'Transactions', description: 'Transfers and transaction history' },
   ],
   components: {
     securitySchemes: {
@@ -105,6 +106,39 @@ export const openApiDocument = {
           reference: { type: 'string', example: 'TXN-20260711-8F3K2MPQ' },
           amount: { type: 'integer', example: 500000 },
           balance_after: { type: 'integer', example: 500000 },
+        },
+      },
+      TransferRequest: {
+        type: 'object',
+        required: ['recipient_wallet_id', 'amount'],
+        properties: {
+          recipient_wallet_id: { type: 'string', format: 'uuid' },
+          amount: { type: 'integer', description: 'kobo', example: 250000 },
+          narration: { type: 'string', maxLength: 255, example: 'rent' },
+        },
+      },
+      WithdrawRequest: {
+        type: 'object',
+        required: ['amount', 'bank_code', 'account_number'],
+        properties: {
+          amount: { type: 'integer', description: 'kobo', example: 100000 },
+          bank_code: { type: 'string', example: '058' },
+          account_number: { type: 'string', description: '10-digit NUBAN', example: '0123456789' },
+          narration: { type: 'string', maxLength: 255 },
+        },
+      },
+      StatementItem: {
+        type: 'object',
+        properties: {
+          entry_id: { type: 'integer' },
+          reference: { type: 'string' },
+          type: { type: 'string', enum: ['FUNDING', 'TRANSFER', 'WITHDRAWAL'] },
+          status: { type: 'string', enum: ['SUCCESS', 'FAILED', 'REVERSED'] },
+          direction: { type: 'string', enum: ['DEBIT', 'CREDIT'] },
+          amount: { type: 'integer' },
+          balance_after: { type: 'integer', nullable: true },
+          narration: { type: 'string', nullable: true },
+          created_at: { type: 'string', format: 'date-time' },
         },
       },
     },
@@ -218,6 +252,132 @@ export const openApiDocument = {
             description: 'Wallet cannot receive funds',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
           },
+        },
+      },
+    },
+    '/api/v1/wallets/me': {
+      get: {
+        tags: ['Wallets'],
+        summary: 'Own wallet balance and status',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': { description: 'Wallet details' },
+          '401': { description: 'Missing or invalid token' },
+        },
+      },
+    },
+    '/api/v1/wallets/withdraw': {
+      post: {
+        tags: ['Wallets'],
+        summary: 'Withdraw to a bank account (simulated payout)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/WithdrawRequest' } },
+          },
+        },
+        responses: {
+          '201': { description: 'Wallet debited' },
+          '400': { description: 'Invalid input or missing Idempotency-Key' },
+          '401': { description: 'Missing or invalid token' },
+          '409': { description: 'Idempotency conflict' },
+          '422': {
+            description: 'Insufficient funds or inactive wallet',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+        },
+      },
+    },
+    '/api/v1/transactions/transfer': {
+      post: {
+        tags: ['Transactions'],
+        summary: "Transfer to another user's wallet",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/TransferRequest' } },
+          },
+        },
+        responses: {
+          '201': { description: 'Transfer settled' },
+          '400': { description: 'Invalid input or missing Idempotency-Key' },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Recipient wallet not found' },
+          '409': { description: 'Idempotency conflict' },
+          '422': {
+            description: 'Insufficient funds, self-transfer or inactive wallet',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+        },
+      },
+    },
+    '/api/v1/transactions': {
+      get: {
+        tags: ['Transactions'],
+        summary: 'Own transaction history (keyset paginated)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+          {
+            name: 'cursor',
+            in: 'query',
+            schema: { type: 'integer' },
+            description: 'entry_id from the previous page (next_cursor)',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Statement page',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        items: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/StatementItem' },
+                        },
+                        next_cursor: { type: 'integer', nullable: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+        },
+      },
+    },
+    '/api/v1/transactions/{reference}': {
+      get: {
+        tags: ['Transactions'],
+        summary: 'Single transaction by reference (own wallet only)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'reference',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', example: 'TXN-20260711-7QG26D7H' },
+          },
+        ],
+        responses: {
+          '200': { description: 'Transaction detail' },
+          '401': { description: 'Missing or invalid token' },
+          '404': { description: 'Unknown reference, or not your transaction' },
         },
       },
     },

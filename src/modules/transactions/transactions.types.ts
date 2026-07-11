@@ -27,5 +27,20 @@ export interface LedgerPosting {
   type: TransactionType;
   amount: number;
   narration?: string;
+  metadata?: Record<string, unknown>;
   entries: EntrySpec[];
+}
+
+// One row of a wallet's statement: the wallet's own ledger line joined
+// with its transaction header
+export interface StatementItem {
+  entry_id: number;
+  reference: string;
+  type: TransactionType;
+  status: TransactionStatus;
+  direction: EntryDirection;
+  amount: number;
+  balance_after: number | null;
+  narration: string | null;
+  created_at: Date;
 }
