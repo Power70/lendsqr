@@ -4,6 +4,7 @@ import type { Knex } from 'knex';
 import { AppError } from '../../shared/errors/app-error';
 import { isDuplicateEntry } from '../../shared/utils/db-errors';
 import type { TokenService } from '../auth/token.service';
+import type { KarmaService } from '../karma/karma.service';
 import type { WalletRepository } from '../wallets/wallets.repository';
 import { toPublicUser, type PublicUser } from './users.types';
 import type { UserRepository } from './users.repository';
@@ -23,9 +24,9 @@ export class UsersService {
     private readonly usersRepository: UserRepository,
     private readonly walletsRepository: WalletRepository,
     private readonly tokenService: TokenService,
+    private readonly karmaService: KarmaService,
   ) {}
 
-  // Day 3 inserts the Karma blacklist check between validation and creation
   async signUp(input: CreateUserInput): Promise<SignUpResult> {
     const duplicateError = AppError.conflict(
       'USER_ALREADY_EXISTS',
@@ -40,6 +41,13 @@ export class UsersService {
     if (existing) {
       throw duplicateError;
     }
+
+    // Duplicates are rejected first so doomed signups never spend Adjutor quota
+    await this.karmaService.assertNotBlacklisted({
+      bvn: input.bvn,
+      email: input.email,
+      phone: input.phone,
+    });
 
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
     const userId = randomUUID();

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db } from '../../database/connection';
 import { validate } from '../../middleware/validate';
 import { tokenService } from '../auth/token.service';
+import { karmaService } from '../karma/karma.service';
 import { walletsRepository } from '../wallets/wallets.repository';
 import { UsersController } from './users.controller';
 import { usersRepository } from './users.repository';
@@ -9,7 +10,7 @@ import { UsersService } from './users.service';
 import { createUserSchema } from './users.validators';
 
 const usersController = new UsersController(
-  new UsersService(db, usersRepository, walletsRepository, tokenService),
+  new UsersService(db, usersRepository, walletsRepository, tokenService, karmaService),
 );
 
 export const usersRouter = Router();
