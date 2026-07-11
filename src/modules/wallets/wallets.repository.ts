@@ -15,6 +15,12 @@ export class WalletRepository {
     return trx<WalletRecord>('wallets').where({ user_id: userId }).forUpdate().first();
   }
 
+  // Ascending-id lock order makes deadlocks between crossing transfers
+  // (A→B racing B→A) impossible: both requests queue on the same first row
+  findManyByIdsForUpdate(ids: string[], trx: Knex.Transaction): Promise<WalletRecord[]> {
+    return trx<WalletRecord>('wallets').whereIn('id', ids).orderBy('id').forUpdate();
+  }
+
   async updateBalance(walletId: string, balance: number, trx: Knex.Transaction): Promise<void> {
     await trx('wallets').where({ id: walletId }).update({ balance, updated_at: trx.fn.now() });
   }
