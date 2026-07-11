@@ -13,10 +13,22 @@ export const openApiDocument = {
     { name: 'Health', description: 'Liveness and readiness probes' },
     { name: 'Users', description: 'Onboarding' },
     { name: 'Auth', description: 'Faux token authentication' },
+    { name: 'Wallets', description: 'Wallet funding and withdrawals' },
   ],
   components: {
     securitySchemes: {
       bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+    },
+    parameters: {
+      IdempotencyKey: {
+        name: 'Idempotency-Key',
+        in: 'header',
+        required: true,
+        schema: { type: 'string', minLength: 8, maxLength: 64 },
+        description:
+          'Unique key per logical operation (a UUID works). Retrying with the same key ' +
+          'and body replays the original response instead of moving money twice.',
+      },
     },
     schemas: {
       Error: {
@@ -73,6 +85,26 @@ export const openApiDocument = {
           balance: { type: 'integer', description: 'kobo', example: 0 },
           currency: { type: 'string', example: 'NGN' },
           status: { type: 'string', example: 'active' },
+        },
+      },
+      FundWalletRequest: {
+        type: 'object',
+        required: ['amount'],
+        properties: {
+          amount: {
+            type: 'integer',
+            description: 'kobo, 100 to 10,000,000,000',
+            example: 500000,
+          },
+          narration: { type: 'string', maxLength: 255, example: 'wallet top-up' },
+        },
+      },
+      MoneyOperationResult: {
+        type: 'object',
+        properties: {
+          reference: { type: 'string', example: 'TXN-20260711-8F3K2MPQ' },
+          amount: { type: 'integer', example: 500000 },
+          balance_after: { type: 'integer', example: 500000 },
         },
       },
     },
@@ -141,6 +173,49 @@ export const openApiDocument = {
           },
           '503': {
             description: 'Blacklist status could not be verified — retry later',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+        },
+      },
+    },
+    '/api/v1/wallets/fund': {
+      post: {
+        tags: ['Wallets'],
+        summary: 'Fund own wallet (simulated settlement)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/FundWalletRequest' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Wallet credited (X-Idempotent-Replay: true on replays)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    data: { $ref: '#/components/schemas/MoneyOperationResult' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Invalid amount or missing Idempotency-Key',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '409': {
+            description: 'Idempotency conflict (key reused with different body, or in flight)',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+          '422': {
+            description: 'Wallet cannot receive funds',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
           },
         },
