@@ -18,6 +18,7 @@
     "test:watch": "jest --watch",
     "db:up": "docker compose up -d mysql",
     "db:down": "docker compose down",
+    "reconcile": "tsx scripts/reconcile.ts",
     "migrate:make": "knex migrate:make --knexfile knexfile.ts",
     "migrate:latest": "knex migrate:latest --knexfile knexfile.ts",
     "migrate:rollback": "knex migrate:rollback --knexfile knexfile.ts"
@@ -28,6 +29,8 @@
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "knex": "^3.3.0",
     "mysql2": "^3.22.6",
