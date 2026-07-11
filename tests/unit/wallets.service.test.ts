@@ -113,3 +113,71 @@ describe('WalletsService.fund', () => {
     expect(runTransaction).toHaveBeenCalledTimes(1);
   });
 });
+
+const withdrawParams = {
+  userId: 'user-1',
+  amount: 4000,
+  bankCode: '058',
+  accountNumber: '0123456789',
+  idempotencyRecordId: 'idem-2',
+};
+
+describe('WalletsService.withdraw', () => {
+  it('debits the wallet and stores only masked destination details', async () => {
+    const { service, walletsRepository, ledgerService } = buildService();
+
+    const result = await service.withdraw(withdrawParams);
+
+    expect(ledgerService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'WITHDRAWAL',
+        amount: 4000,
+        metadata: { destination: { bank_code: '058', account_last4: '6789' } },
+        entries: [
+          { walletId: 'wallet-1', direction: 'DEBIT', amount: 4000, balanceAfter: 6000 },
+          { walletId: null, direction: 'CREDIT', amount: 4000, balanceAfter: null },
+        ],
+      }),
+      fakeTrx,
+    );
+    expect(walletsRepository.updateBalance).toHaveBeenCalledWith('wallet-1', 6000, fakeTrx);
+    expect(result.balance_after).toBe(6000);
+  });
+
+  it('allows withdrawing the exact balance (boundary)', async () => {
+    const { service } = buildService();
+
+    const result = await service.withdraw({ ...withdrawParams, amount: 10000 });
+
+    expect(result.balance_after).toBe(0);
+  });
+
+  it('rejects insufficient funds and moves nothing', async () => {
+    const { service, ledgerService, walletsRepository } = buildService();
+
+    await expect(service.withdraw({ ...withdrawParams, amount: 10001 })).rejects.toMatchObject({
+      httpStatus: 422,
+      code: 'INSUFFICIENT_FUNDS',
+    });
+    expect(ledgerService.record).not.toHaveBeenCalled();
+    expect(walletsRepository.updateBalance).not.toHaveBeenCalled();
+  });
+
+  it('rejects a frozen wallet', async () => {
+    const { service } = buildService({ ...activeWallet(), status: 'frozen' as never });
+
+    await expect(service.withdraw(withdrawParams)).rejects.toMatchObject({
+      httpStatus: 422,
+      code: 'WALLET_NOT_ACTIVE',
+    });
+  });
+
+  it('rejects a missing wallet', async () => {
+    const { service } = buildService(null);
+
+    await expect(service.withdraw(withdrawParams)).rejects.toMatchObject({
+      httpStatus: 404,
+      code: 'WALLET_NOT_FOUND',
+    });
+  });
+});
