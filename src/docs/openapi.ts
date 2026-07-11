@@ -1,5 +1,4 @@
-// Hand-maintained OpenAPI spec, extended as endpoints land each day.
-// Served at /docs via swagger-ui-express.
+// Hand-maintained OpenAPI spec served at /docs via swagger-ui-express
 export const openApiDocument = {
   openapi: '3.0.3',
   info: {
@@ -99,7 +98,7 @@ export const openApiDocument = {
     '/api/v1/users': {
       post: {
         tags: ['Users'],
-        summary: 'Create an account (Karma blacklist check lands Day 3)',
+        summary: 'Create an account (rejected if on the Adjutor Karma blacklist)',
         requestBody: {
           required: true,
           content: {
@@ -132,8 +131,16 @@ export const openApiDocument = {
             description: 'Validation failed',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
           },
+          '403': {
+            description: 'Profile appears on the Karma blacklist',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
           '409': {
             description: 'Email, phone or BVN already registered',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+          '503': {
+            description: 'Blacklist status could not be verified — retry later',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
           },
         },
