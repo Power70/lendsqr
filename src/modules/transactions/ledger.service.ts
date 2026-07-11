@@ -27,6 +27,7 @@ export class LedgerService {
         status: 'SUCCESS',
         amount: posting.amount,
         narration: posting.narration ?? null,
+        metadata: posting.metadata ? JSON.stringify(posting.metadata) : null,
       },
       trx,
     );
