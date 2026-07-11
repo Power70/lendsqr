@@ -29,7 +29,11 @@ const baseConfig: Knex.Config = {
 
 const knexConfig: Record<Env['NODE_ENV'], Knex.Config> = {
   development: baseConfig,
-  test: baseConfig,
+  // Isolated database so integration tests can truncate tables freely
+  test: {
+    ...baseConfig,
+    connection: { ...(baseConfig.connection as object), database: `${env.DB_NAME}_test` },
+  },
   production: baseConfig,
 };
 
