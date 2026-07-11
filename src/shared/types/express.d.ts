@@ -6,6 +6,9 @@ declare global {
         id: string;
         status: 'active' | 'suspended';
       };
+      idempotency?: {
+        recordId: string;
+      };
     }
   }
 }
