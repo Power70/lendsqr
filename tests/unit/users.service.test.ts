@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+﻿import bcrypt from 'bcrypt';
 import type { Knex } from 'knex';
 import { UsersService } from '../../src/modules/users/users.service';
 import { AppError } from '../../src/shared/errors/app-error';
@@ -27,27 +27,35 @@ function buildService() {
     assertNotBlacklisted: jest.fn().mockResolvedValue(undefined),
   };
   const fakeTrx = {} as Knex.Transaction;
-  const db = {
-    transaction: jest.fn(async (cb: (trx: Knex.Transaction) => Promise<void>) => cb(fakeTrx)),
-  };
+  const runTransaction = jest.fn(async (work: (trx: Knex.Transaction) => Promise<void>) =>
+    work(fakeTrx),
+  );
 
   const service = new UsersService(
-    db as unknown as Knex,
+    runTransaction as never,
     usersRepository as never,
     walletsRepository as never,
     tokenService as never,
     karmaService as never,
   );
-  return { service, usersRepository, walletsRepository, tokenService, karmaService, db, fakeTrx };
+  return {
+    service,
+    usersRepository,
+    walletsRepository,
+    tokenService,
+    karmaService,
+    runTransaction,
+    fakeTrx,
+  };
 }
 
 describe('UsersService.signUp', () => {
   it('creates the user and wallet atomically and returns a token', async () => {
-    const { service, usersRepository, walletsRepository, db, fakeTrx } = buildService();
+    const { service, usersRepository, walletsRepository, runTransaction, fakeTrx } = buildService();
 
     const result = await service.signUp(input);
 
-    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(runTransaction).toHaveBeenCalledTimes(1);
     expect(usersRepository.create).toHaveBeenCalledWith(expect.any(Object), fakeTrx);
     expect(walletsRepository.create).toHaveBeenCalledWith(
       { id: result.wallet.id, user_id: result.user.id },
@@ -89,7 +97,7 @@ describe('UsersService.signUp', () => {
   });
 
   it('creates nothing when the profile is blacklisted', async () => {
-    const { service, karmaService, db, usersRepository } = buildService();
+    const { service, karmaService, runTransaction, usersRepository } = buildService();
     karmaService.assertNotBlacklisted.mockRejectedValue(
       AppError.forbidden('USER_BLACKLISTED', 'Onboarding cannot be completed for this profile'),
     );
@@ -98,12 +106,12 @@ describe('UsersService.signUp', () => {
       httpStatus: 403,
       code: 'USER_BLACKLISTED',
     });
-    expect(db.transaction).not.toHaveBeenCalled();
+    expect(runTransaction).not.toHaveBeenCalled();
     expect(usersRepository.create).not.toHaveBeenCalled();
   });
 
   it('creates nothing when the blacklist check is unavailable', async () => {
-    const { service, karmaService, db } = buildService();
+    const { service, karmaService, runTransaction } = buildService();
     karmaService.assertNotBlacklisted.mockRejectedValue(
       AppError.serviceUnavailable('KARMA_CHECK_UNAVAILABLE', 'Eligibility could not be verified'),
     );
@@ -112,18 +120,18 @@ describe('UsersService.signUp', () => {
       httpStatus: 503,
       code: 'KARMA_CHECK_UNAVAILABLE',
     });
-    expect(db.transaction).not.toHaveBeenCalled();
+    expect(runTransaction).not.toHaveBeenCalled();
   });
 
   it('rejects with 409 when email, phone or bvn already exists', async () => {
-    const { service, usersRepository, karmaService, db } = buildService();
+    const { service, usersRepository, karmaService, runTransaction } = buildService();
     usersRepository.findByAnyIdentity.mockResolvedValue({ id: 'existing-user' });
 
     await expect(service.signUp(input)).rejects.toMatchObject({
       httpStatus: 409,
       code: 'USER_ALREADY_EXISTS',
     });
-    expect(db.transaction).not.toHaveBeenCalled();
+    expect(runTransaction).not.toHaveBeenCalled();
     expect(karmaService.assertNotBlacklisted).not.toHaveBeenCalled();
   });
 
