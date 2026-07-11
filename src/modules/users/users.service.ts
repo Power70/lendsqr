@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcrypt';
-import type { Knex } from 'knex';
+import type { TransactionRunner } from '../../database/with-transaction';
 import { AppError } from '../../shared/errors/app-error';
 import { isDuplicateEntry } from '../../shared/utils/db-errors';
 import type { TokenService } from '../auth/token.service';
@@ -20,7 +20,7 @@ export interface SignUpResult {
 
 export class UsersService {
   constructor(
-    private readonly db: Knex,
+    private readonly runTransaction: TransactionRunner,
     private readonly usersRepository: UserRepository,
     private readonly walletsRepository: WalletRepository,
     private readonly tokenService: TokenService,
@@ -64,7 +64,7 @@ export class UsersService {
 
     try {
       // Atomic pair: a user without a wallet (or vice versa) must not exist
-      await this.db.transaction(async (trx) => {
+      await this.runTransaction(async (trx) => {
         await this.usersRepository.create(newUser, trx);
         await this.walletsRepository.create({ id: walletId, user_id: userId }, trx);
       });
