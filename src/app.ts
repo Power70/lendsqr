@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { authRouter } from './modules/auth/auth.routes';
 import { healthRouter } from './modules/health/health.routes';
 import { usersRouter } from './modules/users/users.routes';
+import { walletsRouter } from './modules/wallets/wallets.routes';
 import { logger } from './shared/logger/logger';
 
 // App wiring only — no .listen() here, so tests can drive it via supertest
@@ -37,6 +38,7 @@ export function createApp(): express.Express {
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
   app.use('/api/v1/users', usersRouter);
   app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/wallets', walletsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
