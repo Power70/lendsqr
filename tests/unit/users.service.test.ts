@@ -23,6 +23,9 @@ function buildService() {
   const tokenService = {
     sign: jest.fn().mockReturnValue('signed.jwt.token'),
   };
+  const karmaService = {
+    assertNotBlacklisted: jest.fn().mockResolvedValue(undefined),
+  };
   const fakeTrx = {} as Knex.Transaction;
   const db = {
     transaction: jest.fn(async (cb: (trx: Knex.Transaction) => Promise<void>) => cb(fakeTrx)),
@@ -33,8 +36,9 @@ function buildService() {
     usersRepository as never,
     walletsRepository as never,
     tokenService as never,
+    karmaService as never,
   );
-  return { service, usersRepository, walletsRepository, tokenService, db, fakeTrx };
+  return { service, usersRepository, walletsRepository, tokenService, karmaService, db, fakeTrx };
 }
 
 describe('UsersService.signUp', () => {
@@ -72,8 +76,47 @@ describe('UsersService.signUp', () => {
     expect(result.user).not.toHaveProperty('bvn');
   });
 
+  it('screens all three identities against the karma blacklist', async () => {
+    const { service, karmaService } = buildService();
+
+    await service.signUp(input);
+
+    expect(karmaService.assertNotBlacklisted).toHaveBeenCalledWith({
+      bvn: input.bvn,
+      email: input.email,
+      phone: input.phone,
+    });
+  });
+
+  it('creates nothing when the profile is blacklisted', async () => {
+    const { service, karmaService, db, usersRepository } = buildService();
+    karmaService.assertNotBlacklisted.mockRejectedValue(
+      AppError.forbidden('USER_BLACKLISTED', 'Onboarding cannot be completed for this profile'),
+    );
+
+    await expect(service.signUp(input)).rejects.toMatchObject({
+      httpStatus: 403,
+      code: 'USER_BLACKLISTED',
+    });
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(usersRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('creates nothing when the blacklist check is unavailable', async () => {
+    const { service, karmaService, db } = buildService();
+    karmaService.assertNotBlacklisted.mockRejectedValue(
+      AppError.serviceUnavailable('KARMA_CHECK_UNAVAILABLE', 'Eligibility could not be verified'),
+    );
+
+    await expect(service.signUp(input)).rejects.toMatchObject({
+      httpStatus: 503,
+      code: 'KARMA_CHECK_UNAVAILABLE',
+    });
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects with 409 when email, phone or bvn already exists', async () => {
-    const { service, usersRepository, db } = buildService();
+    const { service, usersRepository, karmaService, db } = buildService();
     usersRepository.findByAnyIdentity.mockResolvedValue({ id: 'existing-user' });
 
     await expect(service.signUp(input)).rejects.toMatchObject({
@@ -81,6 +124,7 @@ describe('UsersService.signUp', () => {
       code: 'USER_ALREADY_EXISTS',
     });
     expect(db.transaction).not.toHaveBeenCalled();
+    expect(karmaService.assertNotBlacklisted).not.toHaveBeenCalled();
   });
 
   it('maps a duplicate-key race during insert to the same 409', async () => {
