@@ -9,6 +9,7 @@ const baseConfig: Knex.Config = {
     user: env.DB_USER,
     password: env.DB_PASSWORD,
     database: env.DB_NAME,
+    ...(env.DB_SSL ? { ssl: { rejectUnauthorized: true } } : {}),
   },
   pool: {
     min: env.DB_POOL_MIN,

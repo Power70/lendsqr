@@ -14,6 +14,11 @@ const envSchema = z.object({
   DB_NAME: z.string().min(1),
   DB_POOL_MIN: z.coerce.number().int().min(0).default(2),
   DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+  // Managed MySQL providers commonly require TLS
+  DB_SSL: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('24h'),
