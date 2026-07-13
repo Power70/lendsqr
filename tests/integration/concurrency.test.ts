@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../src/app';
 import { db } from '../../src/database/connection';
-import { reconcile } from '../../scripts/reconcile';
+import { reconcile } from '../../src/modules/transactions/reconciliation';
 import { resetDatabase } from '../helpers/db';
 import { createFundedUser, type TestUser } from '../helpers/factories';
 
