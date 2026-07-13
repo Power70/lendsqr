@@ -4,11 +4,13 @@
 
 ### How the API endpoints are secured
 
-Every endpoint except signup, login, and health checks requires a **Bearer JWT** (HS256, ≥32-byte secret from environment, 24-hour expiry), verified on every request. The authenticated user is re-loaded from the database per request, so a token becomes useless the moment its account is suspended or deleted — before expiry. Baseline hardening: **helmet** security headers, **per-IP rate limiting** (a general budget on `/api`, a 10-per-window bucket on signup/login against brute force), a 100 KB JSON body limit, `x-powered-by` disabled, and TLS terminated by the hosting platform.
+Every endpoint except signup, login, and health checks requires a **Bearer JWT** (HS256, ≥32-byte secret from environment, 24-hour expiry), verified on every request. The authenticated user is re-loaded from the database per request, so a token becomes useless the moment its account is suspended or deleted — before expiry. Baseline hardening: **helmet** security headers (CSP deliberately off — it breaks the swagger-ui assets and adds nothing to a JSON API; every other header applies), **per-IP rate limiting** (a general budget on `/api`, a 10-per-window bucket on signup/login against brute force), a 100 KB JSON body limit, `x-powered-by` disabled, and TLS terminated by the hosting platform.
 
 ### Authentication and authorization within scope
 
 Authentication is deliberately "faux" per the brief but structurally sound: bcrypt (cost 12) password hashing, signed expiring tokens, and one generic `INVALID_CREDENTIALS` error for both unknown email and wrong password so accounts cannot be enumerated. Authorization is **ownership scoping by construction**: every wallet and transaction query is filtered by the authenticated user's id at the repository layer. No private endpoint accepts a caller-supplied user id, which eliminates IDOR/BOLA as a class — probing another user's transaction reference returns the same 404 as a nonexistent one.
+
+Beyond ownership scoping, the API enforces **role-based access control**: admin endpoints require the `admin` role, re-read from the database on every request, so a demoted admin loses access immediately rather than at token expiry. Every privileged action (suspending a user, freezing a wallet) commits an append-only **audit record** atomically with the change itself, admins cannot modify their own account, and admin views mask BVN to its last four digits.
 
 ### Vulnerabilities considered and mitigations
 
@@ -20,6 +22,7 @@ Authentication is deliberately "faux" per the brief but structurally sound: bcry
 | Negative / float / oversized amounts | zod: integer kobo, min 100, max ₦100 m — plus DB `CHECK` constraints and unsigned columns as a second line |
 | SQL injection | Knex parameter binding everywhere; zero string-built SQL |
 | Blacklisted onboarding bypass | Adjutor Karma checked (BVN, email, phone) **before** any row is created; **fails closed** if Adjutor is unreachable |
+| Privilege escalation | Public sign-up can only create `customer`; admins are provisioned out-of-band via CLI; role re-checked per request; all privileged actions audited |
 | Ledger tampering | Append-only tables; corrections are reversal transactions |
 | Account enumeration | Generic auth errors; transfers addressed by wallet id; uniform 404s |
 | Secret leakage | All secrets in validated env; axios interceptor never logs the Adjutor key; pino redacts `authorization` headers and password fields; masked payout destinations (last-4 only) in ledger metadata |
