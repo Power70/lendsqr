@@ -6,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 import { openApiDocument } from './docs/openapi';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { apiRateLimiter, authRateLimiter } from './middleware/rate-limiter';
+import { adminRouter } from './modules/admin/admin.routes';
 import { authRouter } from './modules/auth/auth.routes';
 import { healthRouter } from './modules/health/health.routes';
 import { transactionsRouter } from './modules/transactions/transactions.routes';
@@ -50,6 +51,7 @@ export function createApp(): express.Express {
   app.use('/api/v1/auth', authRateLimiter, authRouter);
   app.use('/api/v1/wallets', walletsRouter);
   app.use('/api/v1/transactions', transactionsRouter);
+  app.use('/api/v1/admin', adminRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

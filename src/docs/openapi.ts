@@ -15,6 +15,7 @@ export const openApiDocument = {
     { name: 'Auth', description: 'Faux token authentication' },
     { name: 'Wallets', description: 'Wallet funding and withdrawals' },
     { name: 'Transactions', description: 'Transfers and transaction history' },
+    { name: 'Admin', description: 'Oversight & moderation (admin role required)' },
   ],
   components: {
     securitySchemes: {
@@ -139,6 +140,57 @@ export const openApiDocument = {
           balance_after: { type: 'integer', nullable: true },
           narration: { type: 'string', nullable: true },
           created_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      UpdateUserStatusRequest: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: { type: 'string', enum: ['active', 'suspended'] },
+          reason: { type: 'string', minLength: 1, maxLength: 500, example: 'Confirmed fraud' },
+        },
+      },
+      UpdateWalletStatusRequest: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: { type: 'string', enum: ['active', 'frozen'] },
+          reason: { type: 'string', minLength: 1, maxLength: 500 },
+        },
+      },
+      AdminWalletView: {
+        type: 'object',
+        nullable: true,
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          balance: { type: 'integer', description: 'kobo' },
+          currency: { type: 'string', example: 'NGN' },
+          status: { type: 'string', enum: ['active', 'frozen'] },
+        },
+      },
+      AdminUserView: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          email: { type: 'string' },
+          phone: { type: 'string' },
+          first_name: { type: 'string' },
+          last_name: { type: 'string' },
+          role: { type: 'string', enum: ['customer', 'admin'] },
+          status: { type: 'string', enum: ['active', 'suspended'] },
+          bvn_last4: { type: 'string', description: 'Last 4 of BVN; the rest is never exposed' },
+          created_at: { type: 'string', format: 'date-time' },
+          updated_at: { type: 'string', format: 'date-time' },
+          wallet: { $ref: '#/components/schemas/AdminWalletView' },
+        },
+      },
+      ReconciliationReport: {
+        type: 'object',
+        properties: {
+          ok: { type: 'boolean' },
+          wallets_checked: { type: 'integer' },
+          drifted_wallets: { type: 'array', items: { type: 'object' } },
+          global_entry_sum: { type: 'integer', example: 0 },
         },
       },
     },
@@ -401,6 +453,213 @@ export const openApiDocument = {
             description: 'Account suspended',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
           },
+        },
+      },
+    },
+    '/api/v1/admin/users': {
+      get: {
+        tags: ['Admin'],
+        summary: 'List users (filter + search, paginated)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['active', 'suspended'] } },
+          { name: 'role', in: 'query', schema: { type: 'string', enum: ['customer', 'admin'] } },
+          {
+            name: 'search',
+            in: 'query',
+            schema: { type: 'string' },
+            description: 'Matches email or phone',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Page of users with their wallets',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        items: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/AdminUserView' },
+                        },
+                        page: { type: 'integer' },
+                        limit: { type: 'integer' },
+                        total: { type: 'integer' },
+                        total_pages: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': {
+            description: 'Caller is not an admin',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+        },
+      },
+    },
+    '/api/v1/admin/users/{id}': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Get a single user with wallet detail',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'User detail',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    data: { $ref: '#/components/schemas/AdminUserView' },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Caller is not an admin' },
+          '404': { description: 'User not found' },
+        },
+      },
+    },
+    '/api/v1/admin/users/{id}/status': {
+      patch: {
+        tags: ['Admin'],
+        summary: 'Suspend or reactivate a user (audited)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/UpdateUserStatusRequest' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated user (idempotent: no-op if already in that status)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    data: { $ref: '#/components/schemas/AdminUserView' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Invalid status value' },
+          '401': { description: 'Missing or invalid token' },
+          '403': {
+            description: 'Not an admin, or attempted to change own status',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+          },
+          '404': { description: 'User not found' },
+        },
+      },
+    },
+    '/api/v1/admin/wallets/{id}/status': {
+      patch: {
+        tags: ['Admin'],
+        summary: 'Freeze or unfreeze a wallet (audited)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateWalletStatusRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated wallet',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    data: { $ref: '#/components/schemas/AdminWalletView' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Invalid status value' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Caller is not an admin' },
+          '404': { description: 'Wallet not found' },
+        },
+      },
+    },
+    '/api/v1/admin/reconciliation': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Ledger-vs-balance integrity report',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Reconciliation report (ok=false means drift was found)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    data: { $ref: '#/components/schemas/ReconciliationReport' },
+                  },
+                },
+              },
+            },
+          },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Caller is not an admin' },
+        },
+      },
+    },
+    '/api/v1/admin/audit-log': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Admin action history (paginated)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          {
+            name: 'limit',
+            in: 'query',
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+        ],
+        responses: {
+          '200': { description: 'Page of audit entries' },
+          '401': { description: 'Missing or invalid token' },
+          '403': { description: 'Caller is not an admin' },
         },
       },
     },
