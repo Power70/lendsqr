@@ -13,7 +13,7 @@ const KEY_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 // A row stuck in `processing` past this age belongs to a crashed request;
 // the next retry may take it over instead of being locked out forever.
-const STALE_PROCESSING_MS = 60_000;
+const STALE_PROCESSING_SECONDS = 60;
 
 export function createIdempotency(
   repository: IdempotencyRepository,
@@ -70,11 +70,9 @@ export function createIdempotency(
     if (existing.request_hash !== requestHash) {
       throw keyReused();
     }
-    const staleBefore = new Date(Date.now() - STALE_PROCESSING_MS);
-    if (
-      new Date(existing.updated_at) < staleBefore &&
-      (await repository.takeOverStale(existing.id, requestHash, staleBefore))
-    ) {
+    // The conditional UPDATE is the sole authority on staleness — no
+    // application-clock comparison against a database timestamp
+    if (await repository.takeOverStale(existing.id, requestHash, STALE_PROCESSING_SECONDS)) {
       proceed(req, res, repository, existing.id, next);
       return;
     }

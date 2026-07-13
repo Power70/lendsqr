@@ -57,10 +57,12 @@ export class IdempotencyRepository {
     return updated === 1;
   }
 
-  async takeOverStale(id: string, requestHash: string, staleBefore: Date): Promise<boolean> {
+  // Staleness is computed in SQL against the database clock — comparing a
+  // DB-written timestamp with Date.now() breaks under timezone or clock skew
+  async takeOverStale(id: string, requestHash: string, staleAfterSeconds: number): Promise<boolean> {
     const updated = await this.db('idempotency_keys')
       .where({ id, status: 'processing' })
-      .andWhere('updated_at', '<', staleBefore)
+      .andWhere('updated_at', '<', this.db.raw('NOW() - INTERVAL ? SECOND', [staleAfterSeconds]))
       .update({ status: 'processing', request_hash: requestHash, updated_at: this.db.fn.now() });
     return updated === 1;
   }

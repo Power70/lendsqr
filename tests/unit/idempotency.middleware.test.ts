@@ -24,7 +24,7 @@ function buildApp(repo: ReturnType<typeof buildRepo>, handlerShouldFail = false)
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    req.user = { id: 'user-1', status: 'active' };
+    req.user = { id: 'user-1', status: 'active', role: 'customer' };
     next();
   });
   app.post('/pay', createIdempotency(repo as never, 'test:pay'), (req, res) => {
@@ -118,6 +118,8 @@ describe('idempotency middleware', () => {
     const repo = buildRepo({
       tryCreate: jest.fn().mockResolvedValue(false),
       findByScope: jest.fn().mockResolvedValue(existingRecord()),
+      // The conditional UPDATE found the row fresh and refused the takeover
+      takeOverStale: jest.fn().mockResolvedValue(false),
     });
 
     const res = await post(buildApp(repo));
@@ -141,15 +143,13 @@ describe('idempotency middleware', () => {
   it('takes over a stale processing row from a crashed request', async () => {
     const repo = buildRepo({
       tryCreate: jest.fn().mockResolvedValue(false),
-      findByScope: jest
-        .fn()
-        .mockResolvedValue(existingRecord({ updated_at: new Date(Date.now() - 120_000) })),
+      findByScope: jest.fn().mockResolvedValue(existingRecord()),
     });
 
     const res = await post(buildApp(repo));
 
     expect(res.status).toBe(201);
-    expect(repo.takeOverStale).toHaveBeenCalled();
+    expect(repo.takeOverStale).toHaveBeenCalledWith('record-1', HASH, 60);
   });
 
   it('lets a failed key be retried, even with a corrected body', async () => {
