@@ -21,12 +21,13 @@ Thumbs.db
 .idea/
 .vscode/
 
-# internal planning docs — README.md and REPORT.md stay tracked
+# internal planning docs — README.md stays tracked
 BLUEPRINT.md
 BLUEPRINTS.md
 MANUAL.md
 REPORT.md
-docs
+# root planning docs only — src/docs (openapi + erd.png) stays tracked
+/docs/
 
 
 # claude

@@ -44,11 +44,9 @@ Admin endpoints sit behind two middlewares — `authenticate` then `requireAdmin
 
 At this scale (an MVP that must correctly serve ~1,000 users), a monolith with ACID transactions in one MySQL database is strictly better than distributing the wallet/ledger boundary: a single `BEGIN…COMMIT` solves atomically what microservices would need sagas to approximate.
 
-## Architecture & E-R Diagrams
+## E-R Diagram
 
-![Architecture](docs/architecture.png)
-
-![E-R Diagram](docs/erd.png)
+![E-R Diagram](src/docs/erd.png)
 
 ```mermaid
 erDiagram
@@ -113,7 +111,7 @@ erDiagram
     }
 ```
 
-> The PNGs above are generated to `docs/`; the Mermaid source is inline for GitHub rendering.
+> The diagram image lives at `src/docs/erd.png`; the Mermaid source above is inline for GitHub rendering.
 
 ## Database Design Decisions
 
