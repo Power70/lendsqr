@@ -7,7 +7,7 @@ dist/
 # environment — never commit secrets
 .env
 .env.*
-env.example
+!.env.example
 
 # test artifacts
 coverage/
@@ -21,8 +21,8 @@ Thumbs.db
 .idea/
 .vscode/
 
-# .md files
-*.md
+# internal planning docs — README.md and REPORT.md stay tracked
+BLUEPRINT.md
 BLUEPRINTS.md
 
 # claude
