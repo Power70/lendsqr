@@ -6,6 +6,7 @@ import { isDuplicateEntry } from '../../shared/utils/db-errors';
 import type { TokenService } from '../auth/token.service';
 import type { KarmaService } from '../karma/karma.service';
 import type { WalletRepository } from '../wallets/wallets.repository';
+import type { WalletStatus } from '../wallets/wallets.types';
 import { toPublicUser, type PublicUser } from './users.types';
 import type { UserRepository } from './users.repository';
 import type { CreateUserInput } from './users.validators';
@@ -14,7 +15,7 @@ const BCRYPT_COST = 12;
 
 export interface SignUpResult {
   user: PublicUser;
-  wallet: { id: string; balance: number; currency: string; status: string };
+  wallet: { id: string; balance: number; currency: string; status: WalletStatus };
   token: string;
 }
 

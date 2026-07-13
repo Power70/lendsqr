@@ -7,8 +7,8 @@ import { validate } from '../../middleware/validate';
 import { reconcile } from '../transactions/reconciliation';
 import { usersRepository } from '../users/users.repository';
 import { walletsRepository } from '../wallets/wallets.repository';
-import { adminRepository } from './admin.repository';
 import { AdminController } from './admin.controller';
+import { adminRepository } from './admin.repository';
 import { AdminService } from './admin.service';
 import {
   listAuditQuerySchema,

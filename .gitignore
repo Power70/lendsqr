@@ -25,12 +25,9 @@ Thumbs.db
 BLUEPRINT.md
 BLUEPRINTS.md
 MANUAL.md
-REPORT.md
 # root planning docs only — src/docs (openapi + erd.png) stays tracked
 /docs/
 
 
 # claude
 .claude
-
-# 

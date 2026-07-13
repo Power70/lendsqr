@@ -3,7 +3,7 @@ import type { TransactionRunner } from '../../database/with-transaction';
 import { AppError } from '../../shared/errors/app-error';
 import type { ReconciliationReport } from '../transactions/reconciliation';
 import type { UserRepository } from '../users/users.repository';
-import type { UserStatus } from '../users/users.types';
+import type { UserRole, UserStatus } from '../users/users.types';
 import type { WalletRepository } from '../wallets/wallets.repository';
 import type { WalletStatus } from '../wallets/wallets.types';
 import type { AdminRepository } from './admin.repository';
@@ -27,7 +27,7 @@ export interface ListUsersParams {
   page: number;
   limit: number;
   status?: UserStatus;
-  role?: 'customer' | 'admin';
+  role?: UserRole;
   search?: string;
 }
 
