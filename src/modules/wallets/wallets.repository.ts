@@ -1,12 +1,34 @@
 import type { Knex } from 'knex';
 import { db } from '../../database/connection';
-import type { WalletRecord } from './wallets.types';
+import type { WalletRecord, WalletStatus } from './wallets.types';
 
 export class WalletRepository {
   constructor(private readonly db: Knex) {}
 
   findByUserId(userId: string): Promise<WalletRecord | undefined> {
     return this.db<WalletRecord>('wallets').where({ user_id: userId }).first();
+  }
+
+  findById(id: string): Promise<WalletRecord | undefined> {
+    return this.db<WalletRecord>('wallets').where({ id }).first();
+  }
+
+  // Row lock for admin status changes — mirrors the money-path locking so a
+  // freeze/unfreeze and a concurrent operation on the wallet serialise safely.
+  findByIdForUpdate(id: string, trx: Knex.Transaction): Promise<WalletRecord | undefined> {
+    return trx<WalletRecord>('wallets').where({ id }).forUpdate().first();
+  }
+
+  // Batch lookup used to stitch wallets onto a page of users without an N+1.
+  findByUserIds(userIds: string[]): Promise<WalletRecord[]> {
+    if (userIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.db<WalletRecord>('wallets').whereIn('user_id', userIds);
+  }
+
+  async updateStatus(id: string, status: WalletStatus, trx: Knex.Transaction): Promise<void> {
+    await trx('wallets').where({ id }).update({ status, updated_at: trx.fn.now() });
   }
 
   // Row lock: concurrent operations on the same wallet serialise here,
