@@ -27,7 +27,7 @@ export function createAuthenticate(
       throw AppError.forbidden('ACCOUNT_SUSPENDED', 'This account has been suspended');
     }
 
-    req.user = { id: user.id, status: user.status };
+    req.user = { id: user.id, status: user.status, role: user.role };
     next();
   });
 }

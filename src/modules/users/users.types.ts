@@ -1,4 +1,5 @@
 export type UserStatus = 'active' | 'suspended';
+export type UserRole = 'customer' | 'admin';
 
 // Row shape of the `users` table
 export interface UserRecord {
@@ -9,6 +10,7 @@ export interface UserRecord {
   password_hash: string;
   first_name: string;
   last_name: string;
+  role: UserRole;
   status: UserStatus;
   created_at: Date;
   updated_at: Date;

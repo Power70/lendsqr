@@ -5,6 +5,7 @@ declare global {
       user?: {
         id: string;
         status: 'active' | 'suspended';
+        role: 'customer' | 'admin';
       };
       idempotency?: {
         recordId: string;
