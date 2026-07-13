@@ -15,6 +15,31 @@ export interface TestUser {
   token: string;
 }
 
+export interface TestAdmin {
+  userId: string;
+  token: string;
+}
+
+// An admin account has the `admin` role and no wallet (admins never move money).
+export async function createAdmin(): Promise<TestAdmin> {
+  sequence += 1;
+  const userId = randomUUID();
+  const unique = `${Date.now()}${sequence}`.slice(-10);
+
+  await db('users').insert({
+    id: userId,
+    email: `admin-${userId.slice(0, 8)}@test.local`,
+    phone: `+234${unique}`,
+    bvn: `2${unique}`,
+    password_hash: PASSWORD_HASH,
+    first_name: 'Admin',
+    last_name: `User${sequence}`,
+    role: 'admin',
+  });
+
+  return { userId, token: tokenService.sign(userId) };
+}
+
 // Inserts directly so integration tests never depend on the Adjutor API.
 // A nonzero opening balance is seeded as a real FUNDING posting, keeping
 // the ledger-equals-balance invariant true for every test fixture.
