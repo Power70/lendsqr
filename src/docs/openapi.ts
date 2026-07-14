@@ -8,7 +8,9 @@ export const openApiDocument = {
       'MVP wallet service: onboarding, funding, transfers and withdrawals. ' +
       'All monetary amounts are integers in kobo (minor units).',
   },
-  servers: [{ url: 'http://localhost:3000' }],
+  // Relative: "Try it out" targets whatever host is serving the docs,
+  // so the same spec works on localhost and on the deployed URL.
+  servers: [{ url: '/' }],
   tags: [
     { name: 'Health', description: 'Liveness and readiness probes' },
     { name: 'Users', description: 'Onboarding' },
