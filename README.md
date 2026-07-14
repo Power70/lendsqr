@@ -2,7 +2,7 @@
 
 An MVP wallet service for a mobile lending platform. Borrowers receive loans into a wallet, repay from it, and can fund, transfer, and withdraw. Built for the Lendsqr backend engineering assessment.
 
-**Live API:** `https://<candidate-name>-lendsqr-be-test.<platform-domain>` · **Interactive docs:** `<live-url>/docs`
+**Live API:** `https://<candidate-name>-lendsqr-be-test.<platform-domain>` · **Interactive docs:** `<live-url>/docs` · **Security & Failure-Handling Report:** [REPORT.md](REPORT.md)
 
 ## Features
 
@@ -192,7 +192,7 @@ Unit tests (mocked repositories, no DB) cover every service's success **and** fa
 
 ## Deployment
 
-The app is a standard Node service: `npm run build`, run migrations (`npx knex migrate:latest --knexfile knexfile.ts`), then `npm start`. A `Procfile` covers Heroku-style platforms (Railway, Render use their own config). Set `DB_SSL=true` for managed MySQL providers that require TLS. The process refuses to boot if any required environment variable is missing.
+The app is a standard Node service: `npm run build`, run migrations (`npx knex migrate:latest --knexfile knexfile.ts`), then `npm start`. A `Procfile` covers Heroku-style platforms (Railway, Render use their own config). Set `DB_SSL=true` for managed MySQL providers that require TLS; if the provider signs with a private CA (e.g. Aiven), also set `DB_SSL_CA` to the base64-encoded CA certificate. `DB_CONNECT_TIMEOUT_MS` widens the connection budget for remote databases. The process refuses to boot if any required environment variable is missing.
 
 ## What I Would Improve for Production
 
