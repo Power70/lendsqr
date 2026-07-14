@@ -2,7 +2,7 @@
 
 An MVP wallet service for a mobile lending platform. Borrowers receive loans into a wallet, repay from it, and can fund, transfer, and withdraw. Built for the Lendsqr backend engineering assessment.
 
-**Live API:** `hhttps://torzor-peter-lendsqr-be-test.onrender.com` · **Interactive docs:** `https://docs.google.com/document/d/1O-l1IQwCnlWN5toNENkkw-k-IX_sEPxQPwttfxB37kA/edit?usp=sharing` · **Security & Failure-Handling Report:** [REPORT.md](REPORT.md)
+**Live API:** https://torzor-peter-lendsqr-be-test.onrender.com · **Interactive docs:** https://torzor-peter-lendsqr-be-test.onrender.com/docs · **Security & Failure-Handling Report:** [REPORT.md](REPORT.md)
 
 ## Features
 
