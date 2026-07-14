@@ -28,10 +28,11 @@ export const openApiDocument = {
         name: 'Idempotency-Key',
         in: 'header',
         required: true,
-        schema: { type: 'string', minLength: 8, maxLength: 64 },
+        schema: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,64}$' },
         description:
-          'Unique key per logical operation (a UUID works). Retrying with the same key ' +
-          'and body replays the original response instead of moving money twice.',
+          'Unique key per logical operation: 8-64 url-safe characters (a UUID works). ' +
+          'Retrying with the same key and body replays the original response instead ' +
+          'of moving money twice.',
       },
     },
     schemas: {

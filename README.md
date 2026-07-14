@@ -162,6 +162,8 @@ Base path: `/api/v1` · Full interactive spec at `/docs`
 
 All amounts are integers in **kobo**. Responses use a uniform envelope: `{ "status": "success", "data": … }` or `{ "status": "error", "code": …, "message": …, "request_id": … }`.
 
+**Client contract for `Idempotency-Key`:** end users never type it — the app generates one key per user *intention* (`crypto.randomUUID()` when the user taps "Send"), and reuses that same key on every automatic retry of that action. A dropped connection or double-tap therefore cannot move money twice: the server replays the original result (`X-Idempotent-Replay: true`). This is the same contract as Stripe's `Idempotency-Key` / PayPal's `PayPal-Request-Id`. In production the `idempotency_keys` table would get a 24–72 h retention sweep and replay-rate metrics.
+
 ## Getting Started
 
 **Prerequisites:** Node.js 24, Docker (for local MySQL), an [Adjutor](https://app.adjutor.io) API key.
