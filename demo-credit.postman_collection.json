@@ -1,0 +1,392 @@
+{
+  "info": {
+    "name": "Demo Credit — Wallet API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Lendsqr backend assessment — Demo Credit wallet service.\n\nRun the requests top-to-bottom: Sign Up stores the auth token and wallet id in collection variables automatically, so every later request just works. Money endpoints generate their own Idempotency-Key; the 'Fund (replay…)' request deliberately reuses the previous key to demonstrate that retries never move money twice.\n\nBase URL defaults to the live deployment. Amounts are integers in kobo (₦1 = 100 kobo).\n\nAdmin requests need credentials created out-of-band (npm run create-admin); set the adminEmail / adminPassword variables first."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://torzor-peter-lendsqr-be-test.onrender.com" },
+    { "key": "token", "value": "" },
+    { "key": "walletId", "value": "" },
+    { "key": "recipientWalletId", "value": "" },
+    { "key": "recipientUserId", "value": "" },
+    { "key": "fundKey", "value": "" },
+    { "key": "fundRef", "value": "" },
+    { "key": "adminEmail", "value": "" },
+    { "key": "adminPassword", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "uniq", "value": "" },
+    { "key": "uniq2", "value": "" },
+    { "key": "userEmail", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Readiness (pings MySQL)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health/ready" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ready', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 — Onboarding & Auth",
+      "item": [
+        {
+          "name": "Sign Up (creates user + wallet, runs Karma check)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const u = Date.now().toString().slice(-9);",
+                  "pm.collectionVariables.set('uniq', u);",
+                  "pm.collectionVariables.set('userEmail', `user${u}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('token', j.data.token);",
+                  "pm.collectionVariables.set('walletId', j.data.wallet.id);",
+                  "pm.test('wallet starts at zero', () => pm.expect(j.data.wallet.balance).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/users",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"phone\": \"+2348{{uniq}}\",\n  \"bvn\": \"1{{uniq}}0\",\n  \"password\": \"correct-horse-9\",\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Obi\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login (returns a fresh JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"correct-horse-9\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 — Wallet",
+      "item": [
+        {
+          "name": "My wallet (balance & status)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/wallets/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Fund ₦5,000",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('fundKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 funded', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('fundRef', j.data.reference);",
+                  "pm.test('balance credited', () => pm.expect(j.data.balance_after).to.be.a('number'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets/fund",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Idempotency-Key", "value": "{{fundKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500000,\n  \"narration\": \"wallet top-up\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Fund (replay same key — money moves ONCE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 replayed', () => pm.response.to.have.status(201));",
+                  "pm.test('served from idempotency snapshot', () =>",
+                  "  pm.expect(pm.response.headers.get('X-Idempotent-Replay')).to.eql('true'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "description": "Deliberately reuses the SAME Idempotency-Key and body as the previous request. The server replays the stored receipt instead of crediting twice — this is what makes network retries safe.",
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets/fund",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Idempotency-Key", "value": "{{fundKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500000,\n  \"narration\": \"wallet top-up\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Withdraw ₦1,000",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets/withdraw",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100000,\n  \"bank_code\": \"058\",\n  \"account_number\": \"0123456789\",\n  \"narration\": \"payout\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 — Transfers & Statement",
+      "item": [
+        {
+          "name": "Sign Up recipient (second user)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const u = (Date.now() + 7).toString().slice(-9);",
+                  "pm.collectionVariables.set('uniq2', u);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('recipientWalletId', j.data.wallet.id);",
+                  "pm.collectionVariables.set('recipientUserId', j.data.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/users",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user{{uniq2}}@example.com\",\n  \"phone\": \"+2349{{uniq2}}\",\n  \"bvn\": \"2{{uniq2}}1\",\n  \"password\": \"correct-horse-9\",\n  \"first_name\": \"Bola\",\n  \"last_name\": \"Ade\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Transfer ₦2,000 to recipient",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/transactions/transfer",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Idempotency-Key", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_wallet_id\": \"{{recipientWalletId}}\",\n  \"amount\": 200000,\n  \"narration\": \"rent\"\n}"
+            }
+          }
+        },
+        {
+          "name": "My statement (keyset paginated)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/transactions?limit=20",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "One transaction by reference",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/transactions/{{fundRef}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 — Admin (requires admin credentials)",
+      "description": "Admins cannot be created through the public API (by design). Set the adminEmail / adminPassword collection variables to credentials provisioned via `npm run create-admin`, then run Admin Login first.",
+      "item": [
+        {
+          "name": "Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('adminToken', pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List users (filter + search + wallets)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/users?page=1&limit=20",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }]
+          }
+        },
+        {
+          "name": "Suspend the recipient's account (audited)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 suspended', () => pm.response.to.have.status(200));",
+                  "pm.test('status now suspended', () => pm.expect(pm.response.json().data.status).to.eql('suspended'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/admin/users/{{recipientUserId}}/status",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\",\n  \"reason\": \"assessment demo\"\n}"
+            },
+            "description": "Targets the recipient created in folder 3 automatically. Swap the id to act on any user from 'List users'."
+          }
+        },
+        {
+          "name": "Freeze a wallet (audited)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/admin/wallets/{{recipientWalletId}}/status",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"frozen\",\n  \"reason\": \"assessment demo\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Ledger reconciliation (invariant check)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('books balance', () => pm.expect(pm.response.json().data.ok).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/reconciliation",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }]
+          }
+        },
+        {
+          "name": "Audit log",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/audit-log?page=1&limit=20",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}

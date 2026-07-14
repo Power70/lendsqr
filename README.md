@@ -138,7 +138,7 @@ All four claims are proven by integration tests against real MySQL (`tests/integ
 
 ## API Reference
 
-Base path: `/api/v1` · Full interactive spec at `/docs`
+Base path: `/api/v1` · Full interactive spec at `/docs` · Postman collection: [demo-credit.postman_collection.json](demo-credit.postman_collection.json) (import it — the base URL points at the live API, tokens are captured automatically, and money requests generate their own idempotency keys)
 
 | Method | Path | Auth | Idempotency-Key | Description |
 |---|---|---|---|---|
