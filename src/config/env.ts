@@ -19,6 +19,13 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+  // Base64-encoded CA certificate (PEM). Providers like Aiven sign their
+  // server certs with a private CA; supplying it keeps verification strict
+  // instead of falling back to rejectUnauthorized:false.
+  DB_SSL_CA: z.string().optional(),
+  // Local Docker connects in milliseconds; a remote managed MySQL needs room
+  // for the TCP + TLS handshake. Still bounded so a dead DB fails fast.
+  DB_CONNECT_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('24h'),

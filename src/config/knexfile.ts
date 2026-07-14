@@ -9,14 +9,23 @@ const baseConfig: Knex.Config = {
     user: env.DB_USER,
     password: env.DB_PASSWORD,
     database: env.DB_NAME,
-    ...(env.DB_SSL ? { ssl: { rejectUnauthorized: true } } : {}),
+    connectTimeout: env.DB_CONNECT_TIMEOUT_MS,
+    ...(env.DB_SSL
+      ? {
+          ssl: {
+            rejectUnauthorized: true,
+            ...(env.DB_SSL_CA
+              ? { ca: Buffer.from(env.DB_SSL_CA, 'base64').toString('utf8') }
+              : {}),
+          },
+        }
+      : {}),
   },
   pool: {
     min: env.DB_POOL_MIN,
     max: env.DB_POOL_MAX,
   },
-  // Bounded so a dead DB fails readiness checks fast instead of queueing
-  acquireConnectionTimeout: 5000,
+  acquireConnectionTimeout: env.DB_CONNECT_TIMEOUT_MS,
   migrations: {
     directory: './src/database/migrations',
     tableName: 'knex_migrations',
